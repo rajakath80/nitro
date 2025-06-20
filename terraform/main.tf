@@ -126,6 +126,44 @@ resource "aws_security_group" "enclave_sg" {
   tags = { Name = "enclave_sg" }
 }
 
+# 3/ IAM role to access SSM secrets (github pat)
+resource "aws_iam_role" "instance_role" {
+  name               = "enclave_instance_role"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
+}
+
+data "aws_iam_policy_document" "ec2_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+# inline policy allowing SSM:GetParameter
+resource "aws_iam_role_policy" "allow_ssm" {
+  name = "AssumeGetGithubPAT"
+  role = aws_iam_role.instance_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action   = ["ssm:GetParameter"]
+      Resource = "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/github/pat"
+      Effect   = "Allow"
+    }]
+  })
+}
+
+data "aws_caller_identify" "current" {}
+
+# Attach the role to our instance via an instance profile
+resource "aws_iam_instance_profile" "instance_profile" {
+  name = "enclave_instance_profile"
+  role = aws_iam_role.instance_role.name
+}
+
 # 4/ Nitro enabled EC2 with user_data
 resource "aws_instance" "enclave" {
   ami                         = data.aws_ami.amazon_linux2_arm64
@@ -144,7 +182,7 @@ resource "aws_instance" "enclave" {
   user_data = <<-EOF
     #!/bin/bash
     yum update -y
-    yum install -y docker
+    yum install -y git docker aws-nitro-enclaves-cli
     systemctl enable --now docker
 
     amazon-linux-extras enable aws-nitro-enclaves-cli
