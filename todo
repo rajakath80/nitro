@@ -1,0 +1,22 @@
+nitro setup:
+
+docker build -t nitro:latest .
+
+docker-compose run --rm nitro bash
+
+cargo build --release
+
+nitro-cli build-enclave \
+  --docker-uri enclave-image:latest \
+  --output-file wallet_enclave.eif
+
+
+docker-compose up backend
+
+docker run --rm -it \
+  --privileged \
+  --device /dev/kvm \
+  -v $PWD:/workspace \
+  nitro:latest bash 
+
+

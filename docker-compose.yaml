@@ -1,0 +1,22 @@
+services:
+  nitro:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    privileged: true
+    devices:
+      - "/dev/kvm:/dev/kvm"
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace/nitro
+    tty: true
+
+  backend:
+    image: rust:1.87.0
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace/backend
+    ports:
+      - "8090:8090"
+    command: ["bash", "-lc", "cargo run"]
+    tty: true
