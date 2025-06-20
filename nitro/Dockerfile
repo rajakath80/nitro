@@ -4,7 +4,7 @@
 FROM rust:1.87.0 AS builder
 
 # 1. Set working dir and copy your enclave code
-WORKDIR /usr/src/enclave-wallet
+WORKDIR /usr/src/nitro
 COPY . .
 
 # 2. Compile in release mode
@@ -14,7 +14,7 @@ RUN cargo build --release
 FROM scratch
 
 # 3. Copy the compiled binary into the enclave image
-COPY --from=builder /usr/src/enclave-wallet/target/release/enclave-wallet /enclave/enclave-wallet
+COPY --from=builder /usr/src/nitro/target/release/nitro /enclave/nitro
 
 # 4. At runtime, this is the enclave entrypoint
-ENTRYPOINT ["/enclave/enclave-wallet"]
+ENTRYPOINT ["/enclave/nitro"]

@@ -42,8 +42,8 @@ cd /root
 git clone https://$${TOKEN}@github.com/rajakath80/nitro.git workspace
 
 cd workspace/nitro
-docker build -f Dockerfile -t enclave-builder .
-docker run --rm --privileged --device /dev/kvm -v "$(pwd)":/workspace -w /workspace enclave-builder nitro-cli build-enclave --binary-path target/release/enclave-wallet --output-file wallet_enclave.eif
+docker build -f Dockerfile -t nitro .
+docker run --rm --privileged --device /dev/kvm -v "$(pwd)":/workspace -w /workspace nitro nitro-cli build-enclave --binary-path target/release/nitro --output-file wallet_enclave.eif
 
 # 9) Launch the enclave (detached)
 nohup nitro-cli run-enclave --eif-path wallet_enclave.eif --cpu-count 1 --memory 1024 --enclave-cid 3 > /var/log/enclave.log 2>&1 &
