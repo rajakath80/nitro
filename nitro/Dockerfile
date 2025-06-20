@@ -14,7 +14,7 @@ RUN cargo build --release
 RUN ls -l target/release
 
 ### Stage 2: produce the minimal enclave image ###
-FROM amazonlinux:2
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS runtime
 
 # install glibc & SSL libs needed by your binary
 RUN yum install -y openssl-libs ca-certificates && yum clean all
