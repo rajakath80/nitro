@@ -10,11 +10,14 @@ COPY . .
 # 2. Compile in release mode
 RUN cargo build --release
 
+# DEBUG: inspect what got built
+RUN ls -l target/release
+
 ### Stage 2: produce the minimal enclave image ###
 FROM scratch
 
 # 3. Copy the compiled binary into the enclave image
-COPY --from=builder /usr/src/nitro/target/release/nitro /enclave
+COPY --from=builder /usr/src/nitro/target/release/nitro /enclave/nitro
 
 # 4. At runtime, this is the enclave entrypoint
 ENTRYPOINT ["/enclave/nitro"]
