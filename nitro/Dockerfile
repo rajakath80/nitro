@@ -14,7 +14,7 @@ RUN cargo build --release
 FROM scratch
 
 # 3. Copy the compiled binary into the enclave image
-COPY --from=builder /usr/src/nitro/target/release/nitro /enclave/nitro
+COPY --from=builder /usr/src/nitro/target/release/nitro /enclave
 
 # 4. At runtime, this is the enclave entrypoint
 ENTRYPOINT ["/enclave/nitro"]
