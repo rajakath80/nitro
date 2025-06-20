@@ -1,22 +1,15 @@
-nitro setup:
+terraform apply -auto-approve
+terraform plan -destroy
+terraform plan
 
-docker build -t nitro:latest .
+terraform taint aws_instance.enclave
 
-docker-compose run --rm nitro bash
+AWS:
 
-cargo build --release
+ssh -i enclave_key.pem ec2-user@
 
-nitro-cli build-enclave \
-  --docker-uri enclave-image:latest \
-  --output-file wallet_enclave.eif
+sudo tail -f /var/log/cloud-init-output.log
 
-
-docker-compose up backend
-
-docker run --rm -it \
-  --privileged \
-  --device /dev/kvm \
-  -v $PWD:/workspace \
-  nitro:latest bash 
-
+sudo tail -n 50 /var/log/backend.log
+sudo tail -n 50 /var/log/enclave.log
 

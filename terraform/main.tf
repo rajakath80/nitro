@@ -6,14 +6,14 @@ terraform {
     }
     tls = {
       source  = "hashicorp/tls"
-      version = "~> 4.16"
+      version = "~> 4.1.0"
     }
     local = {
       source  = "hashicorp/local"
-      version = "~> 4.16"
+      version = "~> 2.2.0"
     }
-    required_version = ">= 1.2.0"
   }
+  required_version = ">= 1.2.0"
 }
 
 provider "aws" {
@@ -24,6 +24,8 @@ variable "region" {
   type    = string
   default = "us-east-1"
 }
+
+data "aws_caller_identity" "current" {}
 
 data "aws_availability_zones" "azs" {}
 
@@ -156,8 +158,6 @@ resource "aws_iam_role_policy" "allow_ssm" {
   })
 }
 
-data "aws_caller_identify" "current" {}
-
 # Attach the role to our instance via an instance profile
 resource "aws_iam_instance_profile" "instance_profile" {
   name = "enclave_instance_profile"
@@ -166,68 +166,28 @@ resource "aws_iam_instance_profile" "instance_profile" {
 
 # 4/ Nitro enabled EC2 with user_data
 resource "aws_instance" "enclave" {
-  ami                         = data.aws_ami.amazon_linux2_arm64
-  instance_type               = "t4g.nano"
+  ami                         = data.aws_ami.amazon_linux2_arm64.id
+  instance_type               = "c6g.large"
   key_name                    = aws_key_pair.deployer.key_name
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.enclave_sg.id]
   associate_public_ip_address = true
 
   # enable nitro enclaves
-  enclave_options {
-    enabled = true
-  }
+  enclave_options { enabled = true }
+
+  iam_instance_profile = aws_iam_instance_profile.instance_profile.name
 
   # install & run everything
-  user_data = <<-EOF
-    #!/bin/bash
-    yum update -y
-    yum install -y git docker aws-nitro-enclaves-cli
-    systemctl enable --now docker
-
-    amazon-linux-extras enable aws-nitro-enclaves-cli
-
-    # Fetch the PAT from SSM
-    TOKEN=$(aws ssm get-parameter \
-    --name /github/pat \
-    --with-decryption \
-    --query Parameter.Value --output text)
-
-    cat > /etc/nitro_enclaves/allocator.yaml << 'EOM'
-    ---
-    memory_mib: 1024
-    cpu_count: 2
-    EOM
-    systemctl enable --now nitro-enclaves-allocator.service
-
-    curl https://sh.rustup.rs -sSf | sh -s -- -y
-    export PATH=/root/.cargo/bin:$PATH
-
-    cd /root
-    git clone https://github.com/rajakath80/nitro.git workspace
-
-    # Build & package enclave
-    cd workspace/nitro
-    docker build -f Dockerfile -t enclave-builder .
-    docker run --rm --privileged --device /dev/kvm \\
-        -v $(pwd) :/workspace -w /workspace enclave-builer \\
-        nitro-cli build-enclave \\
-            --binary-path target/release/enclave-wallet \\
-            --output-file wallet_enclave.eif
-    nitro-cli run-enclave --eif-path wallet_enclave.eif \\
-        --cpu-count 2 --memory 1024 --enclave-cid 3 &
-
-    # Build & run API backend
-    cd ../backend
-    cargo build --release
-    nohup target/release/backend &
-    EOF
+  user_data = templatefile("${path.module}/user_data_sh.tpl", {
+    aws_region = var.region
+  })
 
   tags = { Name = "enclave_instance" }
 }
 
 # 5/ Expose the public IP
 output "public_ip" {
-  description = "Publid IP of the nitro ec2 instance"
+  description = "Public IP of the nitro ec2 instance"
   value       = aws_instance.enclave.public_ip
 }

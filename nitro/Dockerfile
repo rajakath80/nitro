@@ -1,7 +1,7 @@
 # nitro/Dockerfile
 
 ### Stage 1: build the enclave binary ###
-FROM rust:1.72 as builder
+FROM rust:1.87.0 AS builder
 
 # 1. Set working dir and copy your enclave code
 WORKDIR /usr/src/enclave-wallet
