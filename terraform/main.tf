@@ -186,7 +186,12 @@ resource "aws_instance" "enclave" {
     systemctl enable --now docker
 
     amazon-linux-extras enable aws-nitro-enclaves-cli
-    yum install -y aws-nitro-enclaves-cli
+
+    # Fetch the PAT from SSM
+    TOKEN=$(aws ssm get-parameter \
+    --name /github/pat \
+    --with-decryption \
+    --query Parameter.Value --output text)
 
     cat > /etc/nitro_enclaves/allocator.yaml << 'EOM'
     ---
