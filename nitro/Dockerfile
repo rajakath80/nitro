@@ -14,7 +14,10 @@ RUN cargo build --release
 RUN ls -l target/release
 
 ### Stage 2: produce the minimal enclave image ###
-FROM scratch
+FROM amazonlinux:2
+
+# install glibc & SSL libs needed by your binary
+RUN yum install -y openssl-libs ca-certificates && yum clean all
 
 # 3. Copy the compiled binary into the enclave image
 COPY --from=builder /usr/src/nitro/target/release/nitro /enclave/nitro
