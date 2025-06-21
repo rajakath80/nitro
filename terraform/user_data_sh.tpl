@@ -51,18 +51,18 @@ nitro-cli build-enclave --docker-uri nitro:latest --output-file wallet_enclave.e
 echo "=== Step 11: Launch the enclave (detached) ==="
 nohup nitro-cli run-enclave --eif-path wallet_enclave.eif --cpu-count 1 --memory 1024 --enclave-cid 19 > /var/log/enclave.log 2>&1 &
 
-echo "=== Step 12: Start logging enclave console ==="
-ENCLAVE_ID=$(nitro-cli describe-enclaves | jq -r '.[0].EnclaveID')
+# echo "=== Step 12: Start logging enclave console ==="
+# ENCLAVE_ID=$(nitro-cli describe-enclaves | jq -r '.[0].EnclaveID')
 
-nohup nitro-cli console --enclave-id $ENCLAVE_ID > /var/log/enclave-console.log 2>&1 &
+# nohup nitro-cli console --enclave-id $ENCLAVE_ID > /var/log/enclave-console.log 2>&1 &
 
-echo "Waiting 3s for the enclave to come up…"
-sleep 3
+# echo "Waiting 3s for the enclave to come up…"
+# sleep 3
 
-echo "=== Step 13: Start socat proxy (TCP 8080 → VSOCK 19:1024) ==="
-nohup socat TCP-LISTEN:8080,reuseaddr,fork VSOCK-CONNECT:19:1024 > /var/log/socat.log 2>&1 &
+# echo "=== Step 13: Start socat proxy (TCP 8080 → VSOCK 19:1024) ==="
+# nohup socat TCP-LISTEN:8080,reuseaddr,fork VSOCK-CONNECT:19:1024 > /var/log/socat.log 2>&1 &
 
-echo "=== Step 14: Build & run Actix-Web backend==="
+echo "=== Step 12: Build & run Actix-Web backend==="
 cd ../backend
 cargo build --release
 nohup target/release/backend > /var/log/backend.log 2>&1 &

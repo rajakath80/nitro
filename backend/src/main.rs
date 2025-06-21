@@ -3,12 +3,12 @@ use hex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream as TokioTcpStream;
+use tokio_vsock::{VsockAddr, VsockStream};
 
-// const ENCLAVE_CID: u32 = 19;
-// const ENCLAVE_PORT: u32 = 1024;
-const PROXY_HOST: &str = "13.221.31.204";
-const PROXY_PORT: u16 = 8080;
+const ENCLAVE_CID: u32 = 19;
+const ENCLAVE_PORT: u32 = 1024;
+// const PROXY_HOST: &str = "13.221.31.204";
+// const PROXY_PORT: u16 = 8080;
 
 #[derive(Deserialize)]
 struct CreateWallet {}
@@ -28,13 +28,15 @@ enum Wallet {
     },
 }
 
-/// Helper to talk to the enclave over the TCP proxy
+/// Helper to talk directly to the enclave via vsock
 async fn send_to_enclave(cmd: &str) -> anyhow::Result<Vec<u8>> {
-    // connect to proxy
-    let addr = format!("{}:{}", PROXY_HOST, PROXY_PORT);
-    let mut stream = TokioTcpStream::connect(&addr).await?;
-    // send command
+    // connect via vsock to enclave CID and port
+    let addr = VsockAddr::new(ENCLAVE_CID, ENCLAVE_PORT);
+    let mut stream = VsockStream::connect(addr).await?;
+
+    // send command bytes
     stream.write_all(cmd.as_bytes()).await?;
+
     // read full response
     let mut buf = Vec::new();
     stream.read_to_end(&mut buf).await?;
