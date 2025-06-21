@@ -70,6 +70,8 @@ struct SignEthRequest {
 
 #[post("/wallet/sign_eth")]
 async fn sign_eth(req: Json<SignEthRequest>) -> impl Responder {
+    println!("Inside sign_eth..");
+
     let cmd = format!("sign_eth:{}:{}", req.private_key, req.message_hex);
     match send_to_enclave(&cmd).await {
         Ok(raw) => {
@@ -89,6 +91,8 @@ struct SignSolRequest {
 
 #[post("/wallet/sign_sol")]
 async fn sign_sol(req: Json<SignSolRequest>) -> impl Responder {
+    println!("Inside sign_sol..");
+
     let cmd = format!("sign_sol:{}:{}", req.private_key, req.message);
     match send_to_enclave(&cmd).await {
         Ok(raw) => {
