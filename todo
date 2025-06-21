@@ -1,8 +1,12 @@
+terraform taint aws_instance.enclave
 terraform apply -auto-approve
+
 terraform plan -destroy
+terraform apply
+
 terraform plan
 
-terraform taint aws_instance.enclave
+terraform destroy
 
 AWS:
 
@@ -11,5 +15,5 @@ ssh -i enclave_key.pem ec2-user@
 sudo tail -f /var/log/cloud-init-output.log
 
 sudo tail -n 50 /var/log/backend.log
-sudo tail -n 50 /var/log/enclave.log
 
+sudo tail -n 50 /var/log/enclave.log
