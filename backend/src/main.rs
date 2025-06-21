@@ -7,7 +7,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 
 // const ENCLAVE_CID: u32 = 19;
 // const ENCLAVE_PORT: u32 = 1024;
-const PROXY_HOST: &str = "3.84.230.155";
+const PROXY_HOST: &str = "13.221.31.204";
 const PROXY_PORT: u16 = 8080;
 
 #[derive(Deserialize)]
@@ -47,6 +47,7 @@ async fn create_wallet() -> impl Responder {
 
     match send_to_enclave("create").await {
         Ok(raw) => {
+            println!("Raw: {:?}", raw);
             // parse JSON array of Wallet
             match serde_json::from_slice::<Vec<Wallet>>(&raw) {
                 Ok(wallets) => HttpResponse::Ok().json(wallets),

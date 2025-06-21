@@ -62,8 +62,7 @@ sleep 3
 echo "=== Step 13: Start socat proxy (TCP 8080 → VSOCK 19:1024) ==="
 nohup socat TCP-LISTEN:8080,reuseaddr,fork VSOCK-CONNECT:19:1024 > /var/log/socat.log 2>&1 &
 
-# running this locally
-# echo "=== Step 13: Build & run Actix-Web backend==="
-# cd ../backend
-# cargo build --release
-# nohup target/release/backend > /var/log/backend.log 2>&1 &
+echo "=== Step 14: Build & run Actix-Web backend==="
+cd ../backend
+cargo build --release
+nohup target/release/backend > /var/log/backend.log 2>&1 &
