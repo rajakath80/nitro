@@ -51,8 +51,10 @@ nitro-cli build-enclave --docker-uri nitro:latest --output-file wallet_enclave.e
 echo "=== Step 11: Launch the enclave (detached) ==="
 nohup nitro-cli run-enclave --eif-path wallet_enclave.eif --cpu-count 1 --memory 1024 --enclave-cid 19 > /var/log/enclave.log 2>&1 &
 
-echo "=== Step 12: Log enclave console logs ==="
-sudo socat UNIX-CONNECT:/dev/nitro_enclaves-console STDOUT | tee /var/log/enclave-console.log
+echo "=== Step 12: Start logging enclave console ==="
+ENCLAVE_ID=$(nitro-cli describe-enclaves | jq -r '.[0].EnclaveID')
+
+nohup nitro-cli console --enclave-id $ENCLAVE_ID > /var/log/enclave-console.log 2>&1 &
 
 echo "Waiting 3s for the enclave to come up…"
 sleep 3

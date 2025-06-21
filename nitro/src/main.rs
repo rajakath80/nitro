@@ -6,9 +6,7 @@ use ed25519_dalek::{
     VerifyingKey as SolVerifyingKey,
 };
 use hex;
-use k256::ecdsa::{
-    Signature as EthSignature, SigningKey as EthSigningKey, signature::Signer as EthSigner,
-};
+use k256::ecdsa::{Signature as EthSignature, SigningKey as EthSigningKey};
 use k256::elliptic_curve::generic_array::GenericArray;
 use k256::elliptic_curve::rand_core::OsRng;
 use serde::Serialize;

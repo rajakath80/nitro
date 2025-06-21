@@ -1,65 +1,127 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, post};
+use actix_web::{App, HttpResponse, HttpServer, Responder, post, web::Json};
+use hex;
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncReadExt;
-use tokio_vsock::{VsockAddr, VsockStream};
+use serde_json::json;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream as TokioTcpStream;
 
-const ENCLAVE_CID: u32 = 19;
-const ENCLAVE_PORT: u32 = 1024;
+// const ENCLAVE_CID: u32 = 19;
+// const ENCLAVE_PORT: u32 = 1024;
+const PROXY_HOST: &str = "3.84.230.155";
+const PROXY_PORT: u16 = 8080;
 
 #[derive(Deserialize)]
 struct CreateWallet {}
 
-#[derive(Deserialize, Serialize, Debug)]
-struct Wallet {
-    private_key: String,
-    public_key: String,
+/// Wallet shape returned from enclave
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "coin", rename_all = "lowercase")]
+enum Wallet {
+    Eth {
+        private_key: String,
+        public_key: String,
+        address: String,
+    },
+    Sol {
+        private_key: String,
+        public_key: String,
+    },
+}
+
+/// Helper to talk to the enclave over the TCP proxy
+async fn send_to_enclave(cmd: &str) -> anyhow::Result<Vec<u8>> {
+    // connect to proxy
+    let addr = format!("{}:{}", PROXY_HOST, PROXY_PORT);
+    let mut stream = TokioTcpStream::connect(&addr).await?;
+    // send command
+    stream.write_all(cmd.as_bytes()).await?;
+    // read full response
+    let mut buf = Vec::new();
+    stream.read_to_end(&mut buf).await?;
+    Ok(buf)
 }
 
 #[post("/wallet/create")]
 async fn create_wallet() -> impl Responder {
     println!("Inside create_wallet..");
 
-    //connect to enclace at CID=xx, port=xxxx
-    let addr = VsockAddr::new(ENCLAVE_CID, ENCLAVE_PORT);
-    let mut stream = match VsockStream::connect(addr).await {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("vsock connect failed: {}", e);
-            return HttpResponse::InternalServerError()
-                .body(format!("failed to connect to enclave: {}", e));
+    match send_to_enclave("create").await {
+        Ok(raw) => {
+            // parse JSON array of Wallet
+            match serde_json::from_slice::<Vec<Wallet>>(&raw) {
+                Ok(wallets) => HttpResponse::Ok().json(wallets),
+                Err(e) => HttpResponse::InternalServerError()
+                    .body(format!("Invalid JSON from enclave: {}", e)),
+            }
         }
-    };
-
-    println!("Before read_to_end ..");
-    // If enclave expects a command, write something here:
-    // stream.write_all(b"gen").await.unwrap();
-
-    // Read the JSON response in full
-    let mut buf = Vec::new();
-    if let Err(e) = stream.read_to_end(&mut buf).await {
-        eprintln!("vsock read failed: {}", e);
-        return HttpResponse::InternalServerError()
-            .body(format!("failed to read from enclave: {}", e));
+        Err(e) => {
+            HttpResponse::InternalServerError().body(format!("Failed to talk to enclave: {}", e))
+        }
     }
+}
+#[derive(Deserialize)]
+struct SignEthRequest {
+    private_key: String,
+    message_hex: String,
+}
 
-    // Deserialize into your simple Wallet struct
-    match serde_json::from_slice::<Wallet>(&buf) {
-        Ok(wallet) => {
-            println!("Received wallet: {:?}", wallet);
-            HttpResponse::Ok().json(wallet)
+#[post("/wallet/sign_eth")]
+async fn sign_eth(req: Json<SignEthRequest>) -> impl Responder {
+    let cmd = format!("sign_eth:{}:{}", req.private_key, req.message_hex);
+    match send_to_enclave(&cmd).await {
+        Ok(raw) => {
+            // raw is signature bytes
+            let sig_hex = hex::encode(&raw);
+            HttpResponse::Ok().json(json!({ "signature": sig_hex }))
         }
-        Err(e) => {
-            eprintln!("json parse error: {}", e);
-            HttpResponse::InternalServerError().body(format!("invalid JSON from enclave: {}", e))
+        Err(e) => HttpResponse::InternalServerError().body(format!("Error signing ETH: {}", e)),
+    }
+}
+
+#[derive(Deserialize)]
+struct SignSolRequest {
+    private_key: String,
+    message: String,
+}
+
+#[post("/wallet/sign_sol")]
+async fn sign_sol(req: Json<SignSolRequest>) -> impl Responder {
+    let cmd = format!("sign_sol:{}:{}", req.private_key, req.message);
+    match send_to_enclave(&cmd).await {
+        Ok(raw) => {
+            // raw is signature bytes
+            let sig_hex = hex::encode(&raw);
+            HttpResponse::Ok().json(json!({ "signature": sig_hex }))
         }
+        Err(e) => HttpResponse::InternalServerError().body(format!("Error signing SOL: {}", e)),
     }
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Listing on http://0.0.0.0:8080 ..");
-    HttpServer::new(|| App::new().service(create_wallet))
-        .bind("0.0.0.0:8080")?
-        .run()
-        .await
+    println!("Backend listening on http://0.0.0.0:3000");
+    HttpServer::new(|| {
+        App::new()
+            .service(create_wallet)
+            .service(sign_eth)
+            .service(sign_sol)
+    })
+    .bind(("0.0.0.0", 3000))?
+    .run()
+    .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{App, test};
+
+    #[actix_rt::test]
+    async fn test_create_wallet_endpoint() {
+        let app = test::init_service(App::new().service(create_wallet)).await;
+        let req = test::TestRequest::post().uri("/wallet/create").to_request();
+        let resp = test::call_service(&app, req).await;
+        // Since enclave may not be running in test, we expect a 500 response
+        assert!(resp.status().is_server_error());
+    }
 }
