@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use bs58;
 use ed25519_dalek::{
     Signature as SolSignature, Signer as SolSigner, SigningKey as SolSigningKey,
@@ -11,7 +9,7 @@ use k256::elliptic_curve::generic_array::GenericArray;
 use k256::elliptic_curve::rand_core::OsRng;
 use serde::Serialize;
 use tiny_keccak::{Hasher, Keccak};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio_vsock::{VMADDR_CID_ANY, VsockAddr, VsockListener};
 
 #[derive(Serialize, Debug)]
@@ -113,74 +111,83 @@ async fn main() -> std::io::Result<()> {
     println!("[enclave] listening on {:?}", addr);
 
     loop {
-        let (mut stream, _) = listener.accept().await?;
-        print!("Received request...");
-
+        let (stream, _) = listener.accept().await?;
         tokio::spawn(async move {
-            print!("Beginining to process request...");
+            // Split the stream so we can read and write independently
+            let (read_half, mut write_half) = stream.into_split();
+            let mut reader = BufReader::new(read_half);
+            let mut line = String::new();
 
-            let mut rng = OsRng;
-            // Read command from client
-            let mut cmd_buf = Vec::new();
-            if stream.read_to_end(&mut cmd_buf).is_err() {
-                return;
-            }
-
-            let cmd = String::from_utf8_lossy(&cmd_buf);
-
-            print!("Received command: {}", cmd);
-
-            let response = match cmd.trim() {
-                "create" => {
-                    print!("Inside create command: {}", cmd);
-
-                    let (sk_hex, pk_hex, addr) = generate_eth_wallet(&mut rng);
-                    let eth = Wallet::Eth {
-                        private_key: sk_hex,
-                        public_key: pk_hex,
-                        address: addr,
-                    };
-                    let (sk_b58, pk_b58) = generate_sol_wallet(&mut rng);
-                    let sol = Wallet::Sol {
-                        private_key: sk_b58,
-                        public_key: pk_b58,
-                    };
-                    print!("Create command completed. Sending back wallet info");
-
-                    serde_json::to_vec(&vec![eth, sol]).unwrap()
+            // Read one line (up to the first `\n`)
+            match reader.read_line(&mut line).await {
+                Ok(0) => {
+                    // EOF: client closed without sending a newline
+                    eprintln!("no data received");
+                    return;
                 }
-                s if s.starts_with("sign_eth:") => {
-                    print!("Inside sign_eth command: {}", cmd);
-                    // sign_eth:<hex_key>:<message_hex>
-                    let parts: Vec<&str> = s[9..].splitn(2, ':').collect();
-                    if parts.len() == 2 {
-                        let msg = hex::decode(parts[1]).unwrap_or_default();
-                        match sign_eth_message(parts[0], &msg) {
-                            Ok(sig) => sig.into_bytes(),
-                            Err(_) => b"error".to_vec(),
+                Ok(_) => {
+                    let cmd = line.trim_end(); // strip trailing newline
+                    println!("[enclave] got command: {:?}", cmd);
+
+                    // Handle the command
+                    let response = match cmd {
+                        "create" => {
+                            print!("Inside create command: {}", cmd);
+                            let mut rng = OsRng;
+
+                            let (sk_hex, pk_hex, addr) = generate_eth_wallet(&mut rng);
+                            let eth = Wallet::Eth {
+                                private_key: sk_hex,
+                                public_key: pk_hex,
+                                address: addr,
+                            };
+                            let (sk_b58, pk_b58) = generate_sol_wallet(&mut rng);
+                            let sol = Wallet::Sol {
+                                private_key: sk_b58,
+                                public_key: pk_b58,
+                            };
+                            print!("Create command completed. Sending back wallet info");
+
+                            serde_json::to_vec(&vec![eth, sol]).unwrap()
                         }
-                    } else {
-                        b"invalid".to_vec()
+                        "sign_eth" => {
+                            print!("Inside sign_eth command: {}", cmd);
+                            // sign_eth:<hex_key>:<message_hex>
+                            let parts: Vec<&str> = cmd[9..].splitn(2, ':').collect();
+                            if parts.len() == 2 {
+                                let msg = hex::decode(parts[1]).unwrap_or_default();
+                                match sign_eth_message(parts[0], &msg) {
+                                    Ok(sig) => sig.into_bytes(),
+                                    Err(_) => b"error".to_vec(),
+                                }
+                            } else {
+                                b"invalid".to_vec()
+                            }
+                        }
+                        "sign_sol" => {
+                            print!("Inside sign_sol command: {}", cmd);
+
+                            // sign_sol:<b58_key>:<message>
+                            let parts: Vec<&str> = cmd[8..].splitn(2, ':').collect();
+                            if parts.len() == 2 {
+                                let sig = sign_sol_message(parts[0], parts[1].as_bytes());
+                                sig.into_bytes()
+                            } else {
+                                b"invalid".to_vec()
+                            }
+                        }
+                        _ => b"unknown\n".to_vec(),
+                    };
+
+                    // Send it back over the same vsock
+                    if let Err(e) = write_half.write_all(&response).await {
+                        eprintln!("write error: {}", e);
                     }
                 }
-                s if s.starts_with("sign_sol:") => {
-                    print!("Inside sign_sol command: {}", cmd);
-
-                    // sign_sol:<b58_key>:<message>
-                    let parts: Vec<&str> = s[8..].splitn(2, ':').collect();
-                    if parts.len() == 2 {
-                        let sig = sign_sol_message(parts[0], parts[1].as_bytes());
-                        sig.into_bytes()
-                    } else {
-                        b"invalid".to_vec()
-                    }
+                Err(e) => {
+                    eprintln!("read_line error: {}", e);
                 }
-                _ => b"unknown command".to_vec(),
-            };
-
-            print!("Returning back response: {:?}", response);
-
-            let _ = stream.write_all(&response).await;
+            }
         });
     }
 }

@@ -20,6 +20,9 @@ sudo tail -n 50 /var/log/enclave.log
 
 /root/workspace/nitro/wallet_enclave.eif
 
+sudo nitro-cli terminate-enclave --enclave-id
+pkill -f "nitro-cli console --enclave-id"
+
 sudo nitro-cli run-enclave \
   --eif-path /root/workspace/nitro/wallet_enclave.eif \
   --cpu-count 1 \

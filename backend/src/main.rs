@@ -1,7 +1,9 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, post, web::Json};
+use anyhow::Result;
 use hex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::net::Shutdown;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_vsock::{VsockAddr, VsockStream};
 
@@ -29,15 +31,16 @@ enum Wallet {
 }
 
 /// Helper to talk directly to the enclave via vsock
-async fn send_to_enclave(cmd: &str) -> anyhow::Result<Vec<u8>> {
+async fn send_to_enclave(cmd: &str) -> Result<Vec<u8>> {
     // connect via vsock to enclave CID and port
     let addr = VsockAddr::new(ENCLAVE_CID, ENCLAVE_PORT);
     let mut stream = VsockStream::connect(addr).await?;
 
-    // send command bytes
+    // send the command
     stream.write_all(cmd.as_bytes()).await?;
-
-    // read full response
+    // tell the enclave we're done sending
+    stream.shutdown(Shutdown::Write)?;
+    // collect the response
     let mut buf = Vec::new();
     stream.read_to_end(&mut buf).await?;
     Ok(buf)
