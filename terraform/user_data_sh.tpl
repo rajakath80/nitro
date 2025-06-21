@@ -8,7 +8,7 @@ set -euxo pipefail
 
 echo "=== Step 1: Base setup: Docker, AWS CLI, Git ==="
 yum update -y
-yum install -y aws-cli git docker gcc gcc-c++ make
+yum install -y aws-cli git docker gcc gcc-c++ make socat
 systemctl enable --now docker
 
 echo "=== Step 2: Nitro CLI + kernel modules ==="
@@ -51,7 +51,17 @@ nitro-cli build-enclave --docker-uri nitro:latest --output-file wallet_enclave.e
 echo "=== Step 11: Launch the enclave (detached) ==="
 nohup nitro-cli run-enclave --eif-path wallet_enclave.eif --cpu-count 1 --memory 1024 --enclave-cid 19 > /var/log/enclave.log 2>&1 &
 
-echo "=== Step 12: Build & run Actix-Web backend==="
-cd ../backend
-cargo build --release
-nohup target/release/backend > /var/log/backend.log 2>&1 &
+echo "=== Step 12: Log enclave console logs ==="
+sudo socat UNIX-CONNECT:/dev/nitro_enclaves-console STDOUT | tee /var/log/enclave-console.log
+
+echo "Waiting 3s for the enclave to come up…"
+sleep 3
+
+echo "=== Step 13: Start socat proxy (TCP 8080 → VSOCK 19:1024) ==="
+nohup socat TCP-LISTEN:8080,reuseaddr,fork VSOCK-CONNECT:19:1024 > /var/log/socat.log 2>&1 &
+
+# running this locally
+# echo "=== Step 13: Build & run Actix-Web backend==="
+# cd ../backend
+# cargo build --release
+# nohup target/release/backend > /var/log/backend.log 2>&1 &

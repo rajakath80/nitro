@@ -1,6 +1,6 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, post, web};
+use actix_web::{App, HttpResponse, HttpServer, Responder, post};
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio_vsock::{VsockAddr, VsockStream};
 
 const ENCLAVE_CID: u32 = 19;
