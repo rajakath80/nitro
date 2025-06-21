@@ -102,14 +102,14 @@ async fn sign_sol(req: Json<SignSolRequest>) -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Backend listening on http://0.0.0.0:3000");
+    println!("Backend listening on http://0.0.0.0:8080");
     HttpServer::new(|| {
         App::new()
             .service(create_wallet)
             .service(sign_eth)
             .service(sign_sol)
     })
-    .bind(("0.0.0.0", 3000))?
+    .bind(("0.0.0.0", 8080))?
     .run()
     .await
 }
