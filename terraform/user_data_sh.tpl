@@ -6,7 +6,7 @@ set -euo pipefail
 
 # 1) Base setup: Docker, AWS CLI, Git
 yum update -y
-yum install -y aws-cli git docker
+yum install -y aws-cli git docker gcc gcc-c++ make
 systemctl enable --now docker
 
 # 2) Nitro CLI + kernel modules
@@ -35,20 +35,21 @@ export AWS_DEFAULT_REGION=${aws_region}
 # 7) Fetch GitHub PAT from SSM
 TOKEN=$(aws ssm get-parameter --name /github/pat --with-decryption --query Parameter.Value --output text)
 
-echo "DEBUG: PAT len = $${#TOKEN}" >&2
-
 # 8) Clone & build enclave
 cd /root
 git clone https://$${TOKEN}@github.com/rajakath80/nitro.git workspace
-
 cd workspace/nitro
-docker build -f Dockerfile -t nitro .
-docker run --rm --privileged --device /dev/kvm -v "$(pwd)":/workspace -w /workspace nitro nitro-cli build-enclave --binary-path target/release/nitro --output-file wallet_enclave.eif
 
-# 9) Launch the enclave (detached)
+# 9) Build the enclave docker image
+docker build -f Dockerfile -t nitro:latest .
+
+# 10) Package it into an EIF (no Docker container needed)
+nitro-cli build-enclave --docker-uri nitro:latest --output-file wallet_enclave.eif
+
+# 11) Launch the enclave (detached)
 nohup nitro-cli run-enclave --eif-path wallet_enclave.eif --cpu-count 1 --memory 1024 --enclave-cid 3 > /var/log/enclave.log 2>&1 &
 
-# 10) Build & run Actix-Web backend
+# 12) Build & run Actix-Web backend
 cd ../backend
 cargo build --release
 nohup target/release/backend > /var/log/backend.log 2>&1 &
