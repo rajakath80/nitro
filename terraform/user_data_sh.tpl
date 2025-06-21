@@ -1,5 +1,4 @@
 #!/bin/bash
-# Ensure HOME is defined before ‘set -u’
 export HOME=/root
 
 # Exit on errors, undefined vars, or any step in a pipeline failing;

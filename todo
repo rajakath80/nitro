@@ -17,3 +17,13 @@ sudo tail -f /var/log/cloud-init-output.log
 sudo tail -n 50 /var/log/backend.log
 
 sudo tail -n 50 /var/log/enclave.log
+
+/root/workspace/nitro/wallet_enclave.eif
+
+sudo nitro-cli run-enclave \
+  --eif-path /root/workspace/nitro/wallet_enclave.eif \
+  --cpu-count 1 \
+  --memory 1024 \
+  --enclave-cid 19 \
+  --debug-mode \
+  --attach-console

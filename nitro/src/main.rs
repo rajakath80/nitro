@@ -114,7 +114,11 @@ async fn main() -> std::io::Result<()> {
 
     loop {
         let (mut stream, _) = listener.accept().await?;
+        print!("Received request...");
+
         tokio::spawn(async move {
+            print!("Beginining to process request...");
+
             let mut rng = OsRng;
             // Read command from client
             let mut cmd_buf = Vec::new();
@@ -124,8 +128,12 @@ async fn main() -> std::io::Result<()> {
 
             let cmd = String::from_utf8_lossy(&cmd_buf);
 
+            print!("Received command: {}", cmd);
+
             let response = match cmd.trim() {
                 "create" => {
+                    print!("Inside create command: {}", cmd);
+
                     let (sk_hex, pk_hex, addr) = generate_eth_wallet(&mut rng);
                     let eth = Wallet::Eth {
                         private_key: sk_hex,
@@ -137,9 +145,12 @@ async fn main() -> std::io::Result<()> {
                         private_key: sk_b58,
                         public_key: pk_b58,
                     };
+                    print!("Create command completed. Sending back wallet info");
+
                     serde_json::to_vec(&vec![eth, sol]).unwrap()
                 }
                 s if s.starts_with("sign_eth:") => {
+                    print!("Inside sign_eth command: {}", cmd);
                     // sign_eth:<hex_key>:<message_hex>
                     let parts: Vec<&str> = s[9..].splitn(2, ':').collect();
                     if parts.len() == 2 {
@@ -153,6 +164,8 @@ async fn main() -> std::io::Result<()> {
                     }
                 }
                 s if s.starts_with("sign_sol:") => {
+                    print!("Inside sign_sol command: {}", cmd);
+
                     // sign_sol:<b58_key>:<message>
                     let parts: Vec<&str> = s[8..].splitn(2, ':').collect();
                     if parts.len() == 2 {
@@ -164,6 +177,8 @@ async fn main() -> std::io::Result<()> {
                 }
                 _ => b"unknown command".to_vec(),
             };
+
+            print!("Returning back response: {:?}", response);
 
             let _ = stream.write_all(&response).await;
         });
