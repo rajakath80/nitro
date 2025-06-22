@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig, message::Message, pubkey::Pubkey, signature::Signature,
-    system_instruction, transaction::Transaction,
+    commitment_config::CommitmentConfig, message::Message, native_token::LAMPORTS_PER_SOL,
+    pubkey::Pubkey, signature::Signature, system_instruction, system_program,
+    transaction::Transaction,
 };
 use std::{str::FromStr, sync::Mutex};
 
@@ -18,7 +19,7 @@ pub struct TransferRequest {
     pub email: String,
     pub pin: String,
     pub recipient: String,
-    pub amount: u64,
+    pub amount: f64,
 }
 
 /// Response payload containing the transaction signature
@@ -76,13 +77,25 @@ pub async fn transfer_sol(
         CommitmentConfig::confirmed(),
     );
 
+    let lamports = (req.amount * (LAMPORTS_PER_SOL as f64)) as u64;
+
+    let maybe_account = rpc.get_account(&recipient).await.ok();
+
+    let ix = match maybe_account {
+        Some(_account) => system_instruction::transfer(&sender, &recipient, lamports),
+        None => {
+            // New account: create it with rent_exempt + amount
+            let rent_exempt = rpc.get_minimum_balance_for_rent_exemption(0).await.unwrap();
+            let total = rent_exempt + lamports;
+            system_instruction::create_account(&sender, &recipient, total, 0, &system_program::ID)
+        }
+    };
+
     let recent_blockhash = rpc
         .get_latest_blockhash()
         .await
         .map_err(|e| HttpResponse::InternalServerError().body(format!("Blockhash error: {}", e)))
         .unwrap();
-
-    let ix = system_instruction::transfer(&sender, &recipient, req.amount);
 
     // Rebuild the Message *with* that blockhash
     let message = Message::new_with_blockhash(
@@ -149,7 +162,7 @@ mod tests {
             email: "a@example.com".into(),
             pin: "1234".into(),
             recipient: "invalid".into(),
-            amount: 1,
+            amount: 1.0,
         };
         let req = test::TestRequest::post()
             .uri("/wallet/transfer")
