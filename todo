@@ -30,3 +30,22 @@ sudo nitro-cli run-enclave \
   --enclave-cid 19 \
   --debug-mode \
   --attach-console
+
+[
+    {
+        "coin": "eth",
+        "private_key": "bdc7ca0061ca12c00ba6c6050fa6af0284caca0425b8580b2c616c2e29a8dae0",
+        "public_key": "04a819a131383991a20d2f5195a72d2d9eb11e4375e098be05931bd9d3a97c544a13461f2a946821b1075c5df6833d65b96190595099fbf1c9356baf37d54de1b9",
+        "address": "0x1f7dad9712ec85f9fd026f88e40a4204af52c187"
+    },
+    {
+        "coin": "sol",
+        "private_key": "C1g5BQ3nmuKN39pSpXdWw7Q9z8b5QELji9De6ZRysyqs",
+        "public_key": "LJ1f39TgeB44oaorYrtKsh1u3ndm8ur3YQtPnJFCF53"
+    }
+]
+
+
+solana-test-validator --reset
+solana airdrop 10 --url http://127.0.0.1:8899 xxx
+solana balance --url http://127.0.0.1:8899 
