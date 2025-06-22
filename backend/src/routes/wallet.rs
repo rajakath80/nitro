@@ -6,8 +6,11 @@ use anyhow::Result;
 use hex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{collections::HashMap, net::Shutdown, sync::Mutex};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::{collections::HashMap, io::ErrorKind, net::Shutdown, sync::Mutex, time::Duration};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    time::sleep,
+};
 use tokio_vsock::{VsockAddr, VsockStream};
 
 pub const ENCLAVE_CID: u32 = 19;
@@ -62,18 +65,35 @@ pub fn init_routes(cfg: &mut actix_web::web::ServiceConfig) {
 
 /// Helper to talk directly to the enclave via vsock
 pub async fn send_to_enclave(cmd: &str) -> Result<Vec<u8>> {
-    // connect via vsock to enclave CID and port
+    // Add newline so the enclave’s `read_line` unblocks immediately
+    let cmd_line = format!("{}\n", cmd);
     let addr = VsockAddr::new(ENCLAVE_CID, ENCLAVE_PORT);
-    let mut stream = VsockStream::connect(addr).await?;
 
-    // send the command
-    stream.write_all(cmd.as_bytes()).await?;
-    // tell the enclave we're done sending
-    stream.shutdown(Shutdown::Write)?;
-    // collect the response
-    let mut buf = Vec::new();
-    stream.read_to_end(&mut buf).await?;
-    Ok(buf)
+    // Try a few times on ENOTCONN
+    for attempt in 0..5 {
+        match VsockStream::connect(addr).await {
+            Ok(mut stream) => {
+                // Write the command (with newline)
+                stream.write_all(cmd_line.as_bytes()).await?;
+                // Now indicate EOF on write half
+                stream.shutdown(Shutdown::Write)?;
+                // Read till EOF
+                let mut buf = Vec::new();
+                stream.read_to_end(&mut buf).await?;
+                return Ok(buf);
+            }
+            Err(e) if e.kind() == ErrorKind::NotConnected && attempt < 4 => {
+                // Wait a bit for the enclave listener to come up
+                sleep(Duration::from_millis(200)).await;
+                continue;
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "failed to connect to enclave after retries"
+    ))
 }
 
 #[post("/wallet/create")]
