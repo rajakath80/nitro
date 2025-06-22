@@ -80,8 +80,14 @@ pub async fn transfer_sol(
         .map_err(|e| HttpResponse::InternalServerError().body(format!("Hex decode error: {}", e)))
         .unwrap();
 
-    let mut sig_arr = [0u8; 64];
-    sig_arr.copy_from_slice(&sign_bytes);
+    let sig_arr: [u8; 64] = match sign_bytes.as_slice().try_into() {
+        Ok(arr) => arr,
+        Err(_) => {
+            return HttpResponse::InternalServerError()
+                .body(format!("Unexpected signature length: {}", sign_bytes.len()));
+        }
+    };
+
     let signature = Signature::from(sig_arr);
 
     // Assemble transaction

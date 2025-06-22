@@ -168,10 +168,14 @@ async fn main() -> std::io::Result<()> {
                             print!("Inside sign_sol command: {}", cmd);
 
                             // sign_sol:<b58_key>:<message>
-                            let parts: Vec<&str> = cmd[8..].splitn(2, ':').collect();
-                            if parts.len() == 2 {
-                                let sig = sign_sol_message(parts[0], parts[1].as_bytes());
-                                sig.into_bytes()
+                            if let Some(rest) = cmd.strip_prefix("sign_sol:") {
+                                let parts: Vec<&str> = rest.splitn(2, ':').collect();
+                                if parts.len() == 2 {
+                                    let sig = sign_sol_message(parts[0], parts[1].as_bytes());
+                                    sig.into_bytes()
+                                } else {
+                                    b"invalid".to_vec()
+                                }
                             } else {
                                 b"invalid".to_vec()
                             }

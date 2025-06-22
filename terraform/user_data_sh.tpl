@@ -62,6 +62,7 @@ nohup nitro-cli run-enclave --eif-path wallet_enclave.eif --cpu-count 1 --memory
 # nohup socat TCP-LISTEN:8080,reuseaddr,fork VSOCK-CONNECT:19:1024 > /var/log/socat.log 2>&1 &
 
 echo "=== Step 12: Build & run Actix-Web backend==="
+yum install -y openssl-devel pkgconfig
 cd ../backend
 cargo build --release
 nohup target/release/backend > /var/log/backend.log 2>&1 &

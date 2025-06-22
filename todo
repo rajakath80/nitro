@@ -8,14 +8,17 @@ terraform plan
 
 terraform destroy
 
+
+git add .
+git commit -m 'sol signing fix'
+git push
+
 AWS:
 
 ssh -i enclave_key.pem ec2-user@
 
 sudo tail -f /var/log/cloud-init-output.log
-
 sudo tail -n 50 /var/log/backend.log
-
 sudo tail -n 50 /var/log/enclave.log
 
 /root/workspace/nitro/wallet_enclave.eif
@@ -31,21 +34,26 @@ sudo nitro-cli run-enclave \
   --debug-mode \
   --attach-console
 
-[
-    {
-        "coin": "eth",
-        "private_key": "bdc7ca0061ca12c00ba6c6050fa6af0284caca0425b8580b2c616c2e29a8dae0",
-        "public_key": "04a819a131383991a20d2f5195a72d2d9eb11e4375e098be05931bd9d3a97c544a13461f2a946821b1075c5df6833d65b96190595099fbf1c9356baf37d54de1b9",
-        "address": "0x1f7dad9712ec85f9fd026f88e40a4204af52c187"
-    },
-    {
-        "coin": "sol",
-        "private_key": "C1g5BQ3nmuKN39pSpXdWw7Q9z8b5QELji9De6ZRysyqs",
-        "public_key": "LJ1f39TgeB44oaorYrtKsh1u3ndm8ur3YQtPnJFCF53"
-    }
-]
-
-
 solana-test-validator --reset
 solana airdrop 10 --url http://127.0.0.1:8899 xxx
 solana balance --url http://127.0.0.1:8899 
+
+solana airdrop 10 --url https://api.devnet.solana.com x
+
+ACC 1:
+[{"coin":"eth","private_key":"7545f0435726ccdbc58035ed5e8f84fdb64c92bdd1e4274fc504f8653e1e376f","public_key":"04c1f068541dcdb074f932b3cf0eaa454910a875978b84d356fbef560aecb885cbff22a22a43b2e89e369da334341efa149a71f542164272c171ea9b1372a63a9b","address":"0x93620bc88ac1ff825cd9ae496f0911d9114d72e8"},{"coin":"sol","private_key":"31Vn2scLn8VjdPTApeHzN7HcRBJ11BbFDJH3wf2Dutct","public_key":"Bv4QW2D2aTBys9LRgdK6b3DgqLEsXvVPioa3pDzZtH7h"}]
+
+https://faucet.solana.com/
+
+solana config set --url https://api.devnet.solana.com
+solana-keygen new --no-passphrase --outfile fund.json
+
+solana-keygen new --no-passphrase --outfile fund.json
+Generating a new keypair
+Wrote new keypair to fund.json
+=======================================================================
+pubkey: HPdeBRhith8c6vyDiPJfgu5vqHLJoQN7Dmin852zuGJ3
+=======================================================================
+Save this seed phrase to recover your new keypair:
+firm argue stick fork use comfort whisper domain live punch jeans story
+=======================================================================
