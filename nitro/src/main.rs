@@ -166,13 +166,12 @@ async fn main() -> std::io::Result<()> {
                         }
 
                         "sign_sol" => {
-                            // args = "<b58_key>:<hex_msg>"
-                            if let Some(args) = parts.next() {
-                                let mut sub = args.splitn(2, ':');
+                            // strip off the "sign_sol:" prefix so we split correctly
+                            if let Some(rest) = cmd.strip_prefix("sign_sol:") {
+                                let mut sub = rest.splitn(2, ':');
                                 let sk_b58 = sub.next().unwrap_or("");
                                 let msg_hex = sub.next().unwrap_or("");
                                 let msg_bytes = hex::decode(msg_hex).unwrap_or_default();
-                                // this helper should now return [u8;64]
                                 let sig_bytes: [u8; 64] = sign_sol_message(sk_b58, &msg_bytes);
                                 sig_bytes.to_vec()
                             } else {
