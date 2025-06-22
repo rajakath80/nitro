@@ -128,13 +128,13 @@ async fn main() -> std::io::Result<()> {
                 Ok(_) => {
                     let cmd = line.trim_end(); // strip trailing newline
                     println!("[enclave] got command: {:?}", cmd);
-
-                    // Handle the command
-                    let response = match cmd {
+                    // split into (command_name, args)
+                    let mut parts = cmd.splitn(2, ':');
+                    let cmd_name = parts.next().unwrap_or("");
+                    let response = match cmd_name {
                         "create" => {
-                            print!("Inside create command: {}", cmd);
+                            // same as before
                             let mut rng = OsRng;
-
                             let (sk_hex, pk_hex, addr) = generate_eth_wallet(&mut rng);
                             let eth = Wallet::Eth {
                                 private_key: sk_hex,
@@ -146,46 +146,46 @@ async fn main() -> std::io::Result<()> {
                                 private_key: sk_b58,
                                 public_key: pk_b58,
                             };
-                            print!("Create command completed. Sending back wallet info");
-
                             serde_json::to_vec(&vec![eth, sol]).unwrap()
                         }
+
                         "sign_eth" => {
-                            print!("Inside sign_eth command: {}", cmd);
-                            // sign_eth:<hex_key>:<message_hex>
-                            let parts: Vec<&str> = cmd[9..].splitn(2, ':').collect();
-                            if parts.len() == 2 {
-                                let msg = hex::decode(parts[1]).unwrap_or_default();
-                                match sign_eth_message(parts[0], &msg) {
-                                    Ok(sig) => sig.into_bytes(),
+                            // args = "<hex_key>:<hex_msg>"
+                            if let Some(args) = parts.next() {
+                                let mut sub = args.splitn(2, ':');
+                                let sk_hex = sub.next().unwrap_or("");
+                                let msg_hex = sub.next().unwrap_or("");
+                                let msg_bytes = hex::decode(msg_hex).unwrap_or_default();
+                                match sign_eth_message(sk_hex, &msg_bytes) {
+                                    Ok(sig_hex) => sig_hex.into_bytes(), // returns raw bytes of hex string
                                     Err(_) => b"error".to_vec(),
                                 }
                             } else {
                                 b"invalid".to_vec()
                             }
                         }
-                        "sign_sol" => {
-                            print!("Inside sign_sol command: {}", cmd);
 
-                            // sign_sol:<b58_key>:<message>
-                            if let Some(rest) = cmd.strip_prefix("sign_sol:") {
-                                let parts: Vec<&str> = rest.splitn(2, ':').collect();
-                                if parts.len() == 2 {
-                                    let sig_bytes = sign_sol_message(parts[0], parts[1].as_bytes());
-                                    sig_bytes.to_vec()
-                                } else {
-                                    b"invalid".to_vec()
-                                }
+                        "sign_sol" => {
+                            // args = "<b58_key>:<hex_msg>"
+                            if let Some(args) = parts.next() {
+                                let mut sub = args.splitn(2, ':');
+                                let sk_b58 = sub.next().unwrap_or("");
+                                let msg_hex = sub.next().unwrap_or("");
+                                let msg_bytes = hex::decode(msg_hex).unwrap_or_default();
+                                // this helper should now return [u8;64]
+                                let sig_bytes: [u8; 64] = sign_sol_message(sk_b58, &msg_bytes);
+                                sig_bytes.to_vec()
                             } else {
                                 b"invalid".to_vec()
                             }
                         }
+
                         _ => b"unknown\n".to_vec(),
                     };
 
-                    // Send it back over the same vsock
+                    // write the response back
                     if let Err(e) = write_half.write_all(&response).await {
-                        eprintln!("write error: {}", e);
+                        eprintln!("[enclave] write error: {}", e);
                     }
                 }
                 Err(e) => {
