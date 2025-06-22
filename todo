@@ -40,20 +40,14 @@ solana balance --url http://127.0.0.1:8899
 
 solana airdrop 10 --url https://api.devnet.solana.com x
 
-ACC 1:
-[{"coin":"eth","private_key":"7545f0435726ccdbc58035ed5e8f84fdb64c92bdd1e4274fc504f8653e1e376f","public_key":"04c1f068541dcdb074f932b3cf0eaa454910a875978b84d356fbef560aecb885cbff22a22a43b2e89e369da334341efa149a71f542164272c171ea9b1372a63a9b","address":"0x93620bc88ac1ff825cd9ae496f0911d9114d72e8"},{"coin":"sol","private_key":"31Vn2scLn8VjdPTApeHzN7HcRBJ11BbFDJH3wf2Dutct","public_key":"Bv4QW2D2aTBys9LRgdK6b3DgqLEsXvVPioa3pDzZtH7h"}]
+[{"coin":"eth","private_key":"308cb13be3b916285efc47168c75251f67d5917b1be6c2c91596ec75fe583bf7","public_key":"04411bdcb03cba6be1a1e7daf24b70288138edf19b8533d1287bc92f76988d027eabde8e41a94522ffa33b39bb616b35740ad77226b2f7ff42b3ff6503b4094f72","address":"0x6595fd821fa5eba3f25d487b51e8abf6167cd1ed"},{"coin":"sol","private_key":"FbY1t4yJeEVSX28vneNx2GNJWcLWo8D9FoX2pyzuKyym","public_key":"ASn2XfqSfaY9TrH5T6TFH6cBbETbAmPUEFxJKnW2JBqi"}]
 
 https://faucet.solana.com/
 
 solana config set --url https://api.devnet.solana.com
 solana-keygen new --no-passphrase --outfile fund.json
 
-solana-keygen new --no-passphrase --outfile fund.json
-Generating a new keypair
-Wrote new keypair to fund.json
-=======================================================================
+DEV NET RECEIVER:
 pubkey: HPdeBRhith8c6vyDiPJfgu5vqHLJoQN7Dmin852zuGJ3
-=======================================================================
-Save this seed phrase to recover your new keypair:
-firm argue stick fork use comfort whisper domain live punch jeans story
-=======================================================================
+
+solana balance HPdeBRhith8c6vyDiPJfgu5vqHLJoQN7Dmin852zuGJ3

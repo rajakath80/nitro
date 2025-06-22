@@ -86,7 +86,7 @@ fn sign_eth_message(sk_hex: &str, message: &[u8]) -> Result<String, k256::ecdsa:
 }
 
 /// Sign a message with a Solana private key (base58)
-fn sign_sol_message(sk_b58: &str, message: &[u8]) -> String {
+fn sign_sol_message(sk_b58: &str, message: &[u8]) -> [u8; 64] {
     // Decode base58 into Vec<u8>
     let sk_vec = bs58::decode(sk_b58)
         .into_vec()
@@ -100,7 +100,7 @@ fn sign_sol_message(sk_b58: &str, message: &[u8]) -> String {
     let sk = SolSigningKey::from_bytes(&sk_arr);
     // Sign and hex-encode signature
     let sig: SolSignature = sk.sign(message);
-    hex::encode(sig.to_bytes())
+    sig.to_bytes()
 }
 
 #[tokio::main]
@@ -171,8 +171,8 @@ async fn main() -> std::io::Result<()> {
                             if let Some(rest) = cmd.strip_prefix("sign_sol:") {
                                 let parts: Vec<&str> = rest.splitn(2, ':').collect();
                                 if parts.len() == 2 {
-                                    let sig = sign_sol_message(parts[0], parts[1].as_bytes());
-                                    sig.into_bytes()
+                                    let sig_bytes = sign_sol_message(parts[0], parts[1].as_bytes());
+                                    sig_bytes.to_vec()
                                 } else {
                                     b"invalid".to_vec()
                                 }

@@ -13,7 +13,7 @@ use solana_sdk::{
 use std::{str::FromStr, sync::Mutex};
 
 /// Request payload for SOL transfers
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct TransferRequest {
     pub email: String,
     pub pin: String,
@@ -33,6 +33,8 @@ pub async fn transfer_sol(
     req: web::Json<TransferRequest>,
     data: Data<Mutex<WalletStore>>,
 ) -> impl Responder {
+    println!("Inside transfer_sol.. {:?}", req);
+
     // Authenticate & extract SOL keys
     let (pubkey_hex, privkey_hex) = match data.lock().unwrap().get(&req.email) {
         Some((pin, ws)) if pin == &req.pin => {
@@ -56,6 +58,8 @@ pub async fn transfer_sol(
         _ => return HttpResponse::Unauthorized().body("Invalid credentials or no SOL wallet"),
     };
 
+    println!("Found pub & priv key {}", pubkey_hex);
+
     // Build message
     let sender = Pubkey::from_str(&pubkey_hex)
         .map_err(|e| HttpResponse::BadRequest().body(format!("Invalud sender pubkey : {}", e)))
@@ -65,10 +69,14 @@ pub async fn transfer_sol(
         .map_err(|e| HttpResponse::BadRequest().body(format!("Invalid recipient: {}", e)))
         .unwrap();
 
+    println!("Creating system instruction..");
+
     let ix = system_instruction::transfer(&sender, &recipient, req.amount);
     let message = Message::new(&[ix], Some(&sender));
     let msg_bytes = message.serialize();
     let msg_hex = hex::encode(&msg_bytes);
+
+    println!("Created msg for signing .. {}", msg_hex);
 
     // Sign via internal function
     let sign_hex = match sign_sol_inner(&privkey_hex, &msg_hex).await {
@@ -88,6 +96,8 @@ pub async fn transfer_sol(
         }
     };
 
+    println!("Creating transaction ..");
+
     let signature = Signature::from(sig_arr);
 
     // Assemble transaction
@@ -95,6 +105,8 @@ pub async fn transfer_sol(
         signatures: vec![signature],
         message: message.clone(),
     };
+
+    println!("Sending to Devnet RPC ..");
 
     // Send to Devnet
     let rpc = RpcClient::new_with_commitment(
