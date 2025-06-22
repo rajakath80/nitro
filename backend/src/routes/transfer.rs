@@ -71,8 +71,26 @@ pub async fn transfer_sol(
 
     println!("Creating system instruction..");
 
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let recent_blockhash = rpc
+        .get_latest_blockhash()
+        .await
+        .map_err(|e| HttpResponse::InternalServerError().body(format!("Blockhash error: {}", e)))
+        .unwrap();
+
     let ix = system_instruction::transfer(&sender, &recipient, req.amount);
-    let message = Message::new(&[ix.clone()], Some(&sender));
+
+    // Rebuild the Message *with* that blockhash
+    let message = Message::new_with_blockhash(
+        &[ix.clone()],     // your transfer instruction
+        Some(&sender),     // fee payer
+        &recent_blockhash, // fresh blockhash
+    );
+
     let msg_bytes = message.serialize();
     let msg_hex = hex::encode(&msg_bytes);
 
@@ -100,33 +118,15 @@ pub async fn transfer_sol(
 
     let signature = Signature::from(sig_arr);
 
-    // Send to Devnet
-    let rpc = RpcClient::new_with_commitment(
-        "https://api.devnet.solana.com".to_string(),
-        CommitmentConfig::confirmed(),
-    );
-
-    let recent_blockhash = rpc
-        .get_latest_blockhash()
-        .await
-        .map_err(|e| HttpResponse::InternalServerError().body(format!("Blockhash error: {}", e)))
-        .unwrap();
-
-    // Rebuild the Message *with* that blockhash
-    let tx_message = Message::new_with_blockhash(
-        &[ix.clone()],     // your transfer instruction
-        Some(&sender),     // fee payer
-        &recent_blockhash, // fresh blockhash
-    );
-
     // Assemble transaction
     let tx = Transaction {
         signatures: vec![signature],
-        message: tx_message,
+        message: message.clone(),
     };
 
-    println!("Sending to Devnet RPC ..");
+    println!("Send and confirm to Devnet RPC ..");
 
+    // Send and confirm transaction
     match rpc.send_and_confirm_transaction(&tx).await {
         Ok(tx_sig) => HttpResponse::Ok().json(json!({"tx_signature": tx_sig.to_string()})),
         Err(e) => HttpResponse::InternalServerError().body(format!("RPC error: {}", e)),
