@@ -7,9 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig, message::Message, native_token::LAMPORTS_PER_SOL,
-    pubkey::Pubkey, signature::Signature, system_instruction, system_program,
-    transaction::Transaction,
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, pubkey::Pubkey,
+    signature::Signature, system_instruction, system_program, transaction::Transaction,
 };
 use std::{str::FromStr, sync::Mutex};
 
@@ -91,20 +90,17 @@ pub async fn transfer_sol(
         }
     };
 
-    let recent_blockhash = rpc
+    // 2) Build an unsigned Transaction with payer & blockhash
+    let mut tx = Transaction::new_with_payer(&[ix.clone()], Some(&sender));
+
+    // get latest blockhash
+    tx.message.recent_blockhash = rpc
         .get_latest_blockhash()
         .await
         .map_err(|e| HttpResponse::InternalServerError().body(format!("Blockhash error: {}", e)))
         .unwrap();
 
-    // Rebuild the Message *with* that blockhash
-    let message = Message::new_with_blockhash(
-        &[ix.clone()],     // your transfer instruction
-        Some(&sender),     // fee payer
-        &recent_blockhash, // fresh blockhash
-    );
-
-    let msg_bytes = message.serialize();
+    let msg_bytes = tx.message.serialize();
     let msg_hex = hex::encode(&msg_bytes);
 
     println!("Created msg for signing .. {}", msg_hex);
@@ -128,14 +124,11 @@ pub async fn transfer_sol(
     };
 
     println!("Creating transaction ..");
-
+    // Create signature
     let signature = Signature::from(sig_arr);
 
     // Assemble transaction
-    let tx = Transaction {
-        signatures: vec![signature],
-        message: message.clone(),
-    };
+    tx.signatures[0] = signature;
 
     println!("Send and confirm to Devnet RPC ..");
 
