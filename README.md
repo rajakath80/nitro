@@ -8,13 +8,13 @@
   ### Communicates with TEE (AWS Nitro) using vsock
   ### Returns response to client(s)
 
-## AWS Nitro Enclaves (Rust)
+## 2. AWS Nitro Enclaves (Rust)
   ### All cryptography is here
   ### Wallet creation
   ### Sign ETH
   ### Sign SOL
 
-## Terraform
+## 3. Terraform
   ### IaC to deploy this repo into EC2
   ### Create Nitro eif package
   ### Deploy eif package inside EC2
@@ -23,7 +23,7 @@
   other infra stuff
   read main.tf and .tpl file for all the steps
 
-## Infra (EC2)
+## 4. Infra (EC2)
   ### 1. AWS Nitro enclave (Trusted Execution Environment)
   ### 2. Actix backend deployed and listening @ 8080
   
