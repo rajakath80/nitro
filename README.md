@@ -1,6 +1,6 @@
 # Secure Nitro Enclave Wallet Prototype
 
-![Wallet architecture](./architecture.jpeg)
+![Wallet architecture](./architecture.png)
 
 A privacy-preserving wallet infrastructure that isolates all cryptographic operations inside an AWS Nitro Enclave.
 
