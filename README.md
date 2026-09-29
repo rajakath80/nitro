@@ -1,29 +1,42 @@
-# A secure, privacy-preserving wallet infrastructure powered by:
-- **Actix Web** (Rust backend)
-- **AWS Nitro Enclaves** (Trusted Execution Environment)
-- **Terraform** (Infrastructure as Code for AWS provisioning)
+# Security-Focused Wallet Architecture
 
-## 1. Backend (Actix Web)
-  ### Receives incoming wallet calls
-  ### Communicates with TEE (AWS Nitro) using vsock
-  ### Returns response to client(s)
+![Wallet architecture](./architecture.jpeg)
 
-## 2. AWS Nitro Enclaves (Rust)
-  ### All cryptography is here
-  ### Wallet creation
-  ### Sign ETH
-  ### Sign SOL
+A privacy-preserving wallet infrastructure that isolates all cryptographic operations inside an AWS Nitro Enclave.
 
-## 3. Terraform
-  ### IaC to deploy this repo into EC2
-  ### Create Nitro eif package
-  ### Deploy eif package inside EC2
-  ### VPC
-  ### SG
-  other infra stuff
-  read main.tf and .tpl file for all the steps
+## Overview
 
-## 4. Infra (EC2)
-  ### 1. AWS Nitro enclave (Trusted Execution Environment)
-  ### 2. Actix backend deployed and listening @ 8080
-  
+The system consists of:
+
+- **Actix Web backend written in Rust**
+- **AWS Nitro Enclave trusted execution environment**
+- **Rust cryptography service**
+- **Secure vsock communication between the EC2 host and enclave**
+- **Wallet operations for Ethereum and Solana**
+
+Private keys are generated and used exclusively inside the Nitro Enclave. They are never exposed to the Actix Web backend, client applications, logs, or external network services.
+
+## Request Flow
+
+```text
+Wallet Client
+    │
+    │  HTTPS/API request
+    ▼
+Actix Web Backend
+    │
+    │  vsock
+    ▼
+AWS Nitro Enclave
+    │
+    │  Cryptographic operation
+    ▼
+AWS Nitro Enclave
+    │
+    │  vsock response
+    ▼
+Actix Web Backend
+    │
+    │  Signed response
+    ▼
+Wallet Client
