@@ -1,4 +1,4 @@
-# Security-Focused Wallet Architecture
+# Secure Nitro Enclave Wallet Prototype
 
 ![Wallet architecture](./architecture.jpeg)
 
